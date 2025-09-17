@@ -56,6 +56,14 @@ def get_strings_from_bytes(byte_data, length_out=None, default=4):
     Yields:
         str: A string of printable characters.
     """
+
+    '''
+    if length_out: 
+        min_length = length_out
+    else: 
+        min_length = default
+    '''
+
     min_length = length_out if length_out else default
     
     current_string = []
@@ -125,7 +133,7 @@ def process_lines(line):
             "file_path": file_path
             }
 
-def read_bytes_show_sections(mem_path, input_dict, sections_to_show, length_out, verbose_out):
+def read_bytes_show_sections(mem_path, input_dict, sections_to_show, length_out, verbose_out, strings_out):
     """
     Reads the specified memory regions from /proc/PID/mem and prints them.
 
@@ -169,12 +177,14 @@ def read_bytes_show_sections(mem_path, input_dict, sections_to_show, length_out,
 
                         if verbose_out is True:
                             click.secho(f"{line_num}: Chunk Size: {len(chunk)} bytes\n Path: {path}\n Permissions: {permissions}\n Inode: {inode}\n Address Range: ({hex(start)}-{hex(end)})\n Major Minor Id: {maj_min_id}\n Extracted Strings: {string_list}\n")
+                        elif strings_out is True:  
+                            click.secho(f"{line_num}: Chunk Size: {len(chunk)} bytes\n Path: {path}\n Address Range: ({hex(start)}-{hex(end)})\n Extracted Strings: {string_list}\n")
                         else:
                             click.secho(f"{line_num}: Chunk Size: {len(chunk)} bytes\n Path: {path}\n Address Range: ({hex(start)}-{hex(end)})\n")
                     except OSError as e:
                         click.secho(f"Could not read region {hex(start)}-{hex(end)}: {e}")
 
-def save_file_to_dir(full_file_path, mem_path, none_dict, length_out, verbose_out):
+def save_memory_regions(mem_path, regions_dict, output_path, is_binary=False, length_out=4, verbose_out=False, is_strings=False):
     """
     Saves the specified memory regions to a log file.
 
@@ -185,40 +195,106 @@ def save_file_to_dir(full_file_path, mem_path, none_dict, length_out, verbose_ou
     Args:
         full_file_path (str): The full path to the log file to be created.
         mem_path (str): Path to the /proc/PID/mem file.
-        none_dict (dict): Dictionary of unclassified memory regions.
+        regions_dict (dict): Dictionary of unclassified memory regions.
         length_out (int): Minimum string length to extract.
         verbose_out (bool): If True, prints additional information.
     """
-    with open(full_file_path, 'w') as log_file:
-        log_file.write("Unclassified Memory Regions:\n")
-
-        with open(mem_path, "rb") as mem:
-            for line_num, section in enumerate(none_dict, 1):
-                address, permissions, path, inode, maj_min_id = get_section_information(section)
-                try:
-                    start, end = [int(x, 16) for x in address.split("-")]
-                except ValueError:
-                    click.secho(f"Invalid address format for {address}", fg="yellow")
-                    continue
-                
-                if "r" in permissions:
-                    size = end - start
-                    if size <= 0:
-                        continue
+    try:
+        if is_binary:
+            os.makedirs(output_path, exist_ok=True)
+            with open(mem_path, "rb") as mem:
+                for line_num, section in enumerate(regions_dict, 1):
+                    address, permissions, _, _, _ = get_section_information(section)
                     try:
-                        mem.seek(start)
-                        chunk = mem.read(size)
-                        string_list = list(itertools.islice(get_strings_from_bytes(chunk, length_out), 3))
+                        start, end = [int(x, 16) for x in address.split("-")]
+                    except ValueError:
+                        click.secho(f"Invalid address format for {address}", fg="yellow")
+                        continue
+                        
+                    if "r" in permissions and (end - start) > 0:
+                        try:
+                            mem.seek(start)
+                            chunk = mem.read(end - start)
+                            filename = f"region-{hex(start)}-{hex(end)}.bin"
+                            full_file_path = os.path.join(output_path, filename)
+                            with open(full_file_path, 'wb') as bin_file:
+                                bin_file.write(chunk)
+                        except OSError as e:
+                            click.secho(f"Could not read region {hex(start)}-{hex(end)}: {e}")
+            click.secho(f"Successfully saved {len(regions_dict)} region(s) to '{output_path}'.", fg="green")
+        else:
+            if is_binary is False and is_strings is False: 
 
-                        if verbose_out is True:
-                            log_file.write(f"{line_num}: Chunk Size: {len(chunk)} bytes\n Path: {path}\n Permissions: {permissions}\n Inode: {inode}\n Address Range: ({hex(start)}-{hex(end)})\n Major Minor Id: {maj_min_id}\n Extracted Strings: {string_list}\n" + "\n")
-                        else:
-                            log_file.write(f"{line_num}: Chunk Size: {len(chunk)} bytes\n Path: {path}\n Address Range: ({hex(start)}-{hex(end)})\n" + "\n")
-                    except OSError as e:
-                        click.secho(f"Could not read region {hex(start)}-{hex(end)}: {e}")
-    click.secho(f"Successfully saved {len(none_dict)} unclassified region(s) to '{full_file_path}'.", fg="green")
+                # Create the user-specified directory if it doesn't exist
+                os.makedirs(output_path, exist_ok=True)
+                
+                # Construct the log file path with a timestamp
+                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                filename = f"omnidump-{timestamp}-unclassified-regions.log"
+                full_file_path = os.path.join(output_path, filename)
 
+                with open(full_file_path, 'w') as log_file:
+                    log_file.write("Unclassified Memory Regions:\n")
 
+                    with open(mem_path, "rb") as mem:
+                        for line_num, section in enumerate(regions_dict, 1):
+                            address, permissions, path, inode, maj_min_id = get_section_information(section)
+                            try:
+                                start, end = [int(x, 16) for x in address.split("-")]
+                            except ValueError:
+                                click.secho(f"Invalid address format for {address}", fg="yellow")
+                                continue
+                            
+                            if "r" in permissions:
+                                size = end - start
+                                if size <= 0:
+                                    continue
+                                try:
+                                    mem.seek(start)
+                                    chunk = mem.read(size)
+                                    string_list = list(itertools.islice(get_strings_from_bytes(chunk, length_out), 3))
+
+                                    if verbose_out is True:
+                                        log_file.write(f"{line_num}: Chunk Size: {len(chunk)} bytes\n Path: {path}\n Permissions: {permissions}\n Inode: {inode}\n Address Range: ({hex(start)}-{hex(end)})\n Major Minor Id: {maj_min_id}\n Extracted Strings: {string_list}\n" + "\n")
+                                    else:
+                                        log_file.write(f"{line_num}: Chunk Size: {len(chunk)} bytes\n Path: {path}\n Address Range: ({hex(start)}-{hex(end)})\n" + "\n")
+                                except OSError as e:
+                                    click.secho(f"Could not read region {hex(start)}-{hex(end)}: {e}")
+                click.secho(f"Successfully saved {len(regions_dict)} unclassified region(s) to '{full_file_path}'.", fg="green")
+
+            elif is_binary is False and is_strings is True:
+                    # Create the user-specified directory if it doesn't exist
+                    os.makedirs(output_path, exist_ok=True)
+
+                    with open(mem_path, "rb") as mem:
+                        for line_num, section in enumerate(regions_dict, 1):
+                            address, permissions, _, _, _ = get_section_information(section)
+                            try:
+                                start, end = [int(x, 16) for x in address.split("-")]
+                            except ValueError:
+                                click.secho(f"Invalid address format for {address}", fg="yellow")
+                                continue
+                            
+                            if "r" in permissions:
+                                size = end - start
+                                if size <= 0:
+                                    continue
+                                try:
+                                    mem.seek(start)
+                                    chunk = mem.read(size)
+                                    string_list = list(get_strings_from_bytes(chunk, length_out))
+                                    filename = f"region-{hex(start)}-{hex(end)}-strings.txt"
+                                    full_file_path = os.path.join(output_path, filename)
+                                    
+                                    with open(full_file_path, "w") as strings_file:
+                                        strings_file.write(f"\n--Extracted Stirngs --\n {string_list}") 
+
+                                except OSError as e:
+                                    click.secho(f"Could not read region {hex(start)}-{hex(end)}: {e}")
+                    click.secho(f"Successfully saved strings of {len(regions_dict)} region(s) '{full_file_path}'.", fg="green")
+
+    except Exception as e:
+        click.secho(f"Error saving memory regions: {e}", fg="red")
 '''
 ---- Main Functions ----
 '''
@@ -309,7 +385,7 @@ def group_regions(file_path):
                     section_categories["none"].append(result)
         return section_categories
 
-def format_output_bytes(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec, flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec, flag_none_log, flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec, verbose_out, length_out):
+def format_output_bytes(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec, flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec, flag_none_log, flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec, verbose_out, length_out, flag_sec_log, strings_out, save_dir, flag_strings_log):
     """
     Main orchestration function for formatting and printing memory dump output.
 
@@ -324,74 +400,145 @@ def format_output_bytes(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag
         verbose_out (bool): If True, prints additional information like permissions and strings.
         length_out (int): The length of strings to extract when in verbose mode.
     """
-    none_dict = input_dict.get("none", {})
-    none_dict_length = len(none_dict)
+    
+    #control if print to console
+    print_to_console = True
     
     if flag_none_log:
+        print_to_console = False
+        none_dict = input_dict.get("none", {})
         if none_dict:
-            try:
-                # Create the user-specified directory
-                os.makedirs(flag_none_log, exist_ok=True)
-                
-                # Construct the log file path with a timestamp
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                filename = f"memdump-{timestamp}-unclassified-regions.log"
-                full_file_path = os.path.join(flag_none_log, filename)
-
-                # Write the unclassified regions to the log file
-                save_file_to_dir(full_file_path, mem_path, none_dict, length_out, verbose_out)
-            except Exception as e:
-                click.secho(f"Error saving unclassified regions to file: {e}", fg="red")
+            save_memory_regions(mem_path, none_dict, save_dir, is_binary=False, length_out=length_out, verbose_out=verbose_out)
         else:
             click.secho("No unclassified regions found to save.", fg="yellow")
     
-    # If the user chose to show all sections
-    sections_to_show = []
+    elif flag_sec_log:
+        print_to_console = False
+        sections_to_save = []
 
-    if flag_all_sec is True:
-        for key in input_dict.keys():
-            if key != "none":
-                sections_to_show.append(key)
-    else:
-        # Build the list of sections to show based on specific flags
         if flag_exec_sec:
-            sections_to_show.append("executable")
+            sections_to_save.append("executable")
         if flag_slib_sec:
-            sections_to_show.append("shared_libs")
+            sections_to_save.append("shared_libs")
         if flag_he_sec:
-            sections_to_show.append("heap")
+            sections_to_save.append("heap")
         if flag_st_sec:
-            sections_to_show.append("stack")
+            sections_to_save.append("stack")
         if flag_vvar_sec:
-            sections_to_show.append("vvar")
+            sections_to_save.append("vvar")
         if flag_vsys_sec:
-            sections_to_show.append("vsyscall")
+            sections_to_save.append("vsyscall")
         if flag_vdso_sec:
-            sections_to_show.append("vdso")
+            sections_to_save.append("vdso")
         if flag_anon_sec:
-            sections_to_show.append("anon")
+            sections_to_save.append("anon")
         if flag_gp_sec:
-            sections_to_show.append("guard_pages")
+            sections_to_save.append("guard_pages")
         if flag_fb_sec:
-            sections_to_show.append("file_backed")
+            sections_to_save.append("file_backed")
         if flag_ts_sec:
-            sections_to_show.append("tmpfs_shm")
+            sections_to_save.append("tmpfs_shm")
         if flag_dm_sec:
-            sections_to_show.append("device_mappings")
+            sections_to_save.append("device_mappings")
         if flag_none_sec:
-            sections_to_show.append("none")
+            sections_to_save.append("none")
+
+        for section_name in sections_to_save: 
+            section_dict = input_dict.get(section_name, {})
+            if section_dict: 
+                section_output_dir = os.path.join(save_dir, section_name)
+                save_memory_regions(mem_path, section_dict, section_output_dir, is_binary=True)
+            else: 
+                click.secho(f"No regions found for section '{section_name}'.", fg="yellow")
     
-    # Use the helper function to read bytes and print sections to the console
-    read_bytes_show_sections(mem_path, input_dict, sections_to_show, length_out, verbose_out)
+    elif flag_strings_log: 
+        sections_to_save = []
+        print_to_console = False
+
+        if flag_exec_sec:
+            sections_to_save.append("executable")
+        if flag_slib_sec:
+            sections_to_save.append("shared_libs")
+        if flag_he_sec:
+            sections_to_save.append("heap")
+        if flag_st_sec:
+            sections_to_save.append("stack")
+        if flag_vvar_sec:
+            sections_to_save.append("vvar")
+        if flag_vsys_sec:
+            sections_to_save.append("vsyscall")
+        if flag_vdso_sec:
+            sections_to_save.append("vdso")
+        if flag_anon_sec:
+            sections_to_save.append("anon")
+        if flag_gp_sec:
+            sections_to_save.append("guard_pages")
+        if flag_fb_sec:
+            sections_to_save.append("file_backed")
+        if flag_ts_sec:
+            sections_to_save.append("tmpfs_shm")
+        if flag_dm_sec:
+            sections_to_save.append("device_mappings")
+        if flag_none_sec:
+            sections_to_save.append("none")
+        for section_name in sections_to_save: 
+            section_dict = input_dict.get(section_name, {})
+            if section_dict: 
+                section_output_dir = os.path.join(save_dir, section_name)
+                save_memory_regions(mem_path, section_dict, section_output_dir, is_binary=False, is_strings=True)
+            else: 
+                click.secho(f"No regions found for section '{section_name}'.", fg="yellow")
+    
+    if print_to_console: 
+        # If the user chose to show all sections
+        sections_to_show = []
+
+        if flag_all_sec is True:
+            for key in input_dict.keys():
+                if key != "none":
+                    sections_to_show.append(key)
+        else:
+            # Build the list of sections to show based on specific flags
+            if flag_exec_sec:
+                sections_to_show.append("executable")
+            if flag_slib_sec:
+                sections_to_show.append("shared_libs")
+            if flag_he_sec:
+                sections_to_show.append("heap")
+            if flag_st_sec:
+                sections_to_show.append("stack")
+            if flag_vvar_sec:
+                sections_to_show.append("vvar")
+            if flag_vsys_sec:
+                sections_to_show.append("vsyscall")
+            if flag_vdso_sec:
+                sections_to_show.append("vdso")
+            if flag_anon_sec:
+                sections_to_show.append("anon")
+            if flag_gp_sec:
+                sections_to_show.append("guard_pages")
+            if flag_fb_sec:
+                sections_to_show.append("file_backed")
+            if flag_ts_sec:
+                sections_to_show.append("tmpfs_shm")
+            if flag_dm_sec:
+                sections_to_show.append("device_mappings")
+            if flag_none_sec:
+                sections_to_show.append("none")
         
+        # Use the helper function to read bytes and print sections to the console
+        read_bytes_show_sections(mem_path, input_dict, sections_to_show, length_out, verbose_out, strings_out)
+    
+    none_dict = input_dict.get("none", {})
+    none_dict_length = len(none_dict) 
     # Provide a summary of unclassified regions if they were not logged
-    if not flag_none_log:
+    if not flag_none_log or not flag_sec_log:
         click.secho(f"{none_dict_length} unclassified memory regions found", fg="yellow")
         click.secho(f"Use '--unclassified' command to print them. Or use '--all' show everything", fg="yellow")
         click.secho(f"Use '--log-unclassified' command to save them to a log file.", fg="yellow")
 
 
-def dump_bytes_mem(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec, flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec, flag_none_log, flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec, verbose_out, length_out):
+def dump_bytes_mem(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec, flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec, flag_none_log, flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec, verbose_out, length_out, flag_sec_log, strings_out, save_dir, flag_strings_log):
     """
     Main orchestration function for dumping memory bytes from a process.
 
@@ -406,5 +553,5 @@ def dump_bytes_mem(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag_all_
         verbose_out (bool): If True, prints additional information like permissions and strings.
         length_out (int): The length of strings to extract when in verbose mode.
     """
-    format_output_bytes(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec, flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec, flag_none_log, flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec, verbose_out, length_out)
+    format_output_bytes(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec, flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec, flag_none_log, flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec, verbose_out, length_out, flag_sec_log, strings_out, save_dir, flag_strings_log)
 
