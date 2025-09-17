@@ -1,2 +1,2 @@
-# Memdump
+# Omnidump 
 Memory dumping cli tool
