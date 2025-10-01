@@ -1,3 +1,4 @@
+import pwd
 import os
 import sys
 import click
@@ -184,31 +185,70 @@ SHOW COMMAND
 '''
 
 @main.command(name="show")
-@click.option('--owner', 'user', type=str, help="Filter by the owner name.")
-def show(user):
-    '''
-    Show running processes. Shows in the order of pid, name
-    '''
-    if str(user): 
-        print("nice")
-    click.echo("Showing process...")
+@click.option('--owner', 'user', type=str, help="Filter processes by the owner's name.")
+@click.option('-sp', 'flag_sleeping', is_flag=True, help="Filter the output of the show command. Show only sleeping processes.")
+@click.option('-id', 'flag_idle', is_flag=True, help="Filter the output of the show command. Show only idle processes.")
+@click.option('-rn', 'flag_running', is_flag=True, help="Filter the output of the show command. Show only running processes.")
+def show(user, flag_sleeping, flag_idle, flag_running):
+    """
+    Show running processes.
+    """
+    click.echo("Showing processes...")
+
+    sections_to_show = []
+
+    # Define a color map for process statuses
+    status_colors = {
+        "running": "green",
+        "idle": "yellow",
+        "sleeping": "blue",
+    }
+
+    flag_options= {
+        "sleeping": flag_sleeping, 
+        "running": flag_running,
+        "idle": flag_idle
+    }
+
+    # Determine which statuses to show based on the flags
+    statuses_to_show = []
+    for status, is_set in flag_options.items():
+        if is_set:
+            statuses_to_show.append(status)
+
+    # If no flags are set, show all statuses
+    if not statuses_to_show:
+        statuses_to_show = list(flag_options.keys())
+    
+    # Check if a user filter is provided and validate it
+    if user:
+        try:
+            pwd.getpwnam(user)
+        except KeyError:
+            click.echo(f"Error: The user '{user}' doesn't exist.", err=True)
+            sys.exit(1)
+    
+    found_processes = 0
+
     for proc in psutil.process_iter(['pid', 'name', 'status', 'username']):
-        pid = proc.info['pid']
-        name = proc.info['name']
-        status = proc.info['status']
-        owner = proc.info['username']
+        proc_info = proc.info
 
-        if status == "running":
-            color = "green"
-        elif status == "idle":
-            color = "yellow"
-        elif status == "sleeping":
-            color = "blue"
-        else:
-            color = "white"
+        if user and proc_info['username'] != user:
+            continue
 
-        click.secho(f"PID: {pid} - Name: {name} - Status: {status} - Owner: {owner}", fg=color)
+        if proc_info['status'] not in statuses_to_show:
+            continue
+        
+        found_processes += 1
 
+        color = status_colors.get(proc_info['status'], "white")
+        
+        click.secho(
+            f"PID: {proc_info['pid']} - Name: {proc_info['name']} - Status: {proc_info['status']} - Owner: {proc_info['username']}",
+            fg=color
+        )
+    if found_processes == 0:
+        click.echo("No processes found matching the specified criteria.")
 '''
 MAIN PID COMMAND
 '''
@@ -223,7 +263,7 @@ MAIN PID COMMAND
 @click.option('--log-sections', 'flag_sec_log', is_flag=True, help="Save a section and each individual region to bytes to a file. Give a parent directory to save information to. Use section flags to save data.")
 @click.option('--unclassified', 'flag_none_sec', is_flag=True, help="Dump sections that can't be mapped.")
 @click.option('--log-unclassified', 'flag_none_log', is_flag=True, help="Save uncategorized sections to a log file. If given directory doesn't exist the command will create it.If no section flags are specified then command will look for unclassified regions throughout each section. Please see examples for more information.")
-@click.option('--log-strings', 'flag_strings_log', is_flag=True, help="TBD")
+@click.option('--log-strings', 'flag_strings_log', is_flag=True, help="Save a section and each individaul regions strings to a txt file. Use --save-dir and give a parent directory to save data to. Use section flags to save data.")
 @click.option('-e', 'flag_exec_sec', is_flag=True, help="Dump only executable sections.")
 @click.option('-sl', 'flag_slib_sec', is_flag=True, help="Dump only shared library sections.")
 @click.option('-h', 'flag_he_sec', is_flag=True, help="Dump only heap sections.")
@@ -271,7 +311,7 @@ def dump_pid(
 
     if not pid and not dump_self:
         click.echo("Error: A PID or --self flag is required. Please run omnidump dump pid --help for more information.")
-        sys.exit(1) 
+        sys.exit(2)
 
     # 1.1 Validate log flags 
     #Validate --log-unclassified and --verbose / --length flag combinations
@@ -280,31 +320,71 @@ def dump_pid(
         other_section_flags = any([
             flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec,
             flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec,
-            flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec,
+            flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec, 
         
         ])
-        if other_section_flags:
-            print(other_section_flags)
+        if other_section_flags:  
             click.echo("Error: The '--log-unclassified' flag cannot be used with any other section flags.")
-            sys.exit(1)
+            sys.exit(3)
         
         if length_out is not None and not verbose_out:
             click.echo("Error: When using '--log-unclassified', the '--length' flag requires the '--verbose' flag. Please run omnidump dump pid --help for more information.")
-            sys.exit(1)
+            sys.exit(4)
 
         if save_dir is None: 
             click.echo("Error: When using '--log-unclassified', the '--save-dir' flag is required. Please run omnidump dump pid --help for more information.")
-            sys.exit(1) 
+            sys.exit(5) 
     
     #Validate --log-sections  
-    if flag_sec_log: 
-        if not any([flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec, flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec, flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec]):
+    if flag_sec_log:
+        other_section_flags_2 = any([
+            flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec,
+            flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec,
+            flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec,
+        
+        ])
+        
+        other_flags =any([
+            length_out, verbose_out  
+        ])
+        if not any([flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec, flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec, flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec]):   
             click.echo("Error: The '--log-sections' flag requires at least one section flag (-e, -h, etc.) to be specified.")
-            sys.exit(1)
+            sys.exit(6)
         
         if save_dir is None: 
             click.echo("Error: When using '--log-sections', the '--save-dir' flag is required. Please run omnidump dump pid --help for more information.")
-            sys.exit(1)
+            sys.exit(7)
+
+        if save_dir and other_section_flags_2 and other_flags: 
+            click.echo("Error: When using '--log-sections', please reframe from using other flags such as: '--length', and '--verbose'. Please run omnidump dump pid --help for more information.")
+            sys.exit(8)
+    
+
+    #Validate --log-strings  
+    if flag_strings_log:
+        
+        other_section_flags_3 = any([
+            flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec,
+            flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec,
+            flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec,
+        
+        ])
+
+        other_flags_2 =any([
+            length_out, verbose_out  
+        ])
+        if not any([flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec, flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec, flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec]):
+            click.echo("Error: The '--log-strings' flag requires at least one section flag (-e, -h, etc.) to be specified.")
+            sys.exit(9)
+        
+        if save_dir is None: 
+            click.echo("Error: When using '--log-sections', the '--save-dir' flag is required. Please run omnidump dump pid --help for more information.")
+            sys.exit(10)
+        
+        if save_dir and other_section_flags_3 and other_flags_2: 
+            click.echo("Error: When using '--log-sections', please reframe from using other flags such as: '--length', and '--verbose'. Please run omnidump dump pid --help for more information.")
+            sys.exit(11)
+
     
     section_flags = any([
         flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec,
@@ -312,28 +392,35 @@ def dump_pid(
         flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec,
     ])
 
-    #Validate --log-strings  
-    if flag_strings_log: 
-        if not any([flag_exec_sec, flag_slib_sec, flag_all_sec, flag_he_sec, flag_st_sec, flag_vvar_sec, flag_vsys_sec, flag_vdso_sec, flag_none_sec, flag_anon_sec, flag_gp_sec, flag_fb_sec, flag_ts_sec, flag_dm_sec]):
-            click.echo("Error: The '--log-strings' flag requires at least one section flag (-e, -h, etc.) to be specified.")
-            sys.exit(1)
-        
-        if save_dir is None: 
-            click.echo("Error: When using '--log-sections', the '--save-dir' flag is required. Please run omnidump dump pid --help for more information.")
-            sys.exit(1)
-
-    if strings_out and not section_flags: 
-        click.echo("Error: The '--strings' flag requires at least one section flag.")
-        print(f"Second string: {strings_out}")
-        sys.exit(1)
+    log_flags = any([flag_none_log, flag_sec_log, flag_strings_log]) 
 
     if length_out is not None and not (verbose_out or strings_out):
         click.echo("Error: The '--length' flag requires the '--verbose' or the '--strings' flag. Please run omnidump dump pid --help for more information.")
-        sys.exit(1)
+        sys.exit(13)
+
+    if (dump_self or pid) and not section_flags:
+        if log_flags is True: 
+            pass
+        else:
+            click.echo("Error: The '--self' or 'pid' flag requires at least one section flag.")
+            sys.exit(12)
+    
+    '''
+    if strings_out and not section_flags: 
+        click.echo("Error: The '--strings' flag requires at least one section flag.")
+        sys.exit(13)
+    '''
 
     if length_out is not None and length_out <= 0:
-        click.secho("Error: Please provide a value greater than 0 for '--length'. Please run omnidump dump pid --help for more information.", fg="red")
-        sys.exit(1)
+        click.secho("Error: Please provide a value greater than 0 for '--length'. Please run omnidump dump pid --help for more information.")
+        sys.exit(14)
+
+    if section_flags is not None and save_dir is not None:
+        if log_flags is True: 
+            pass
+        else: 
+            click.secho("Error: Section flags (-e, -h, --all, --unclassified, etc.) cannot be used with '--save-dir DIR' flag.")
+            sys.exit(15)
 
     # 2. Determine Target PID
     if dump_self:
@@ -357,7 +444,7 @@ def dump_pid(
 
     if length_out is None:
         length_out = 4
-    
+   
     # 4. Passes flags and PID to be mapped.
     pid_pass_flags(
         target_pid,

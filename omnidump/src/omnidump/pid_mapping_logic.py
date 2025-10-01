@@ -29,7 +29,7 @@ dump_bytes_mem()  <-- This is the main entry point
                 |                 |------> get_strings_from_bytes()  <-- Helper to extract strings from the data
                 |
                 |
-                |------> IF user wants to save to a file (e.g., `--log-unclassified`):
+                |------> IF user wants to save to a file (e.g., `--log-unclassified, --log-strings, --log-sections`):
                 |            save_file_to_dir()
                 |                 |
                 |                 |------> get_section_information()
@@ -404,6 +404,22 @@ def format_output_bytes(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag
     #control if print to console
     print_to_console = True
     
+    flag_options_all = {
+        "executable": flag_exec_sec,
+        "shared_libs": flag_slib_sec,
+        "heap": flag_he_sec,
+        "stack": flag_st_sec,
+        "vvar": flag_vvar_sec,
+        "vsyscall": flag_vsys_sec,
+        "vdso": flag_vdso_sec,
+        "anon": flag_anon_sec,
+        "guard_pages": flag_gp_sec,
+        "file_backed": flag_fb_sec,
+        "tmpfs_shm": flag_ts_sec,
+        "device_mappings": flag_dm_sec,
+        "none": flag_none_sec
+    }
+
     if flag_none_log:
         print_to_console = False
         none_dict = input_dict.get("none", {})
@@ -415,33 +431,9 @@ def format_output_bytes(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag
     elif flag_sec_log:
         print_to_console = False
         sections_to_save = []
-
-        if flag_exec_sec:
-            sections_to_save.append("executable")
-        if flag_slib_sec:
-            sections_to_save.append("shared_libs")
-        if flag_he_sec:
-            sections_to_save.append("heap")
-        if flag_st_sec:
-            sections_to_save.append("stack")
-        if flag_vvar_sec:
-            sections_to_save.append("vvar")
-        if flag_vsys_sec:
-            sections_to_save.append("vsyscall")
-        if flag_vdso_sec:
-            sections_to_save.append("vdso")
-        if flag_anon_sec:
-            sections_to_save.append("anon")
-        if flag_gp_sec:
-            sections_to_save.append("guard_pages")
-        if flag_fb_sec:
-            sections_to_save.append("file_backed")
-        if flag_ts_sec:
-            sections_to_save.append("tmpfs_shm")
-        if flag_dm_sec:
-            sections_to_save.append("device_mappings")
-        if flag_none_sec:
-            sections_to_save.append("none")
+        for flag, is_true in flag_options_all.items():
+            if is_true: 
+                sections_to_save.append(flag)
 
         for section_name in sections_to_save: 
             section_dict = input_dict.get(section_name, {})
@@ -455,32 +447,10 @@ def format_output_bytes(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag
         sections_to_save = []
         print_to_console = False
 
-        if flag_exec_sec:
-            sections_to_save.append("executable")
-        if flag_slib_sec:
-            sections_to_save.append("shared_libs")
-        if flag_he_sec:
-            sections_to_save.append("heap")
-        if flag_st_sec:
-            sections_to_save.append("stack")
-        if flag_vvar_sec:
-            sections_to_save.append("vvar")
-        if flag_vsys_sec:
-            sections_to_save.append("vsyscall")
-        if flag_vdso_sec:
-            sections_to_save.append("vdso")
-        if flag_anon_sec:
-            sections_to_save.append("anon")
-        if flag_gp_sec:
-            sections_to_save.append("guard_pages")
-        if flag_fb_sec:
-            sections_to_save.append("file_backed")
-        if flag_ts_sec:
-            sections_to_save.append("tmpfs_shm")
-        if flag_dm_sec:
-            sections_to_save.append("device_mappings")
-        if flag_none_sec:
-            sections_to_save.append("none")
+        for flag, is_true in flag_options_all.items():
+            if is_true: 
+                sections_to_save.append(flag)
+
         for section_name in sections_to_save: 
             section_dict = input_dict.get(section_name, {})
             if section_dict: 
@@ -498,33 +468,9 @@ def format_output_bytes(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag
                 if key != "none":
                     sections_to_show.append(key)
         else:
-            # Build the list of sections to show based on specific flags
-            if flag_exec_sec:
-                sections_to_show.append("executable")
-            if flag_slib_sec:
-                sections_to_show.append("shared_libs")
-            if flag_he_sec:
-                sections_to_show.append("heap")
-            if flag_st_sec:
-                sections_to_show.append("stack")
-            if flag_vvar_sec:
-                sections_to_show.append("vvar")
-            if flag_vsys_sec:
-                sections_to_show.append("vsyscall")
-            if flag_vdso_sec:
-                sections_to_show.append("vdso")
-            if flag_anon_sec:
-                sections_to_show.append("anon")
-            if flag_gp_sec:
-                sections_to_show.append("guard_pages")
-            if flag_fb_sec:
-                sections_to_show.append("file_backed")
-            if flag_ts_sec:
-                sections_to_show.append("tmpfs_shm")
-            if flag_dm_sec:
-                sections_to_show.append("device_mappings")
-            if flag_none_sec:
-                sections_to_show.append("none")
+            for flag, is_true in flag_options_all.items():
+                if is_true: 
+                    sections_to_show.append(flag)
         
         # Use the helper function to read bytes and print sections to the console
         read_bytes_show_sections(mem_path, input_dict, sections_to_show, length_out, verbose_out, strings_out)
@@ -534,7 +480,7 @@ def format_output_bytes(mem_path, input_dict, flag_exec_sec, flag_slib_sec, flag
     # Provide a summary of unclassified regions if they were not logged
     if not flag_none_log or not flag_sec_log:
         click.secho(f"{none_dict_length} unclassified memory regions found", fg="yellow")
-        click.secho(f"Use '--unclassified' command to print them. Or use '--all' show everything", fg="yellow")
+        click.secho(f"Use '--unclassified' command to print them.", fg="yellow")
         click.secho(f"Use '--log-unclassified' command to save them to a log file.", fg="yellow")
 
 
