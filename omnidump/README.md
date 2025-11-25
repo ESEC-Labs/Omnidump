@@ -1,7 +1,7 @@
 # memdump
 
-[![PyPI - Version](https://img.shields.io/pypi/v/memdump.svg)](https://pypi.org/project/memdump)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/memdump.svg)](https://pypi.org/project/memdump)
+[![PyPI - Version](https://img.shields.io/pypi/v/omnidump.svg)](https://pypi.org/project/omnidump)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/omnidump.svg)](https://pypi.org/project/omnidump)
 
 -----
 
@@ -13,9 +13,10 @@
 ## Installation
 
 ```console
-pip install memdump
+pip install omnidump
 ```
 
 ## License
 
-`memdump` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
+`omnidump` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
+
