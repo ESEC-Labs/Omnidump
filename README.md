@@ -80,7 +80,35 @@ Note: The --self command uses the current PID of the executing command. This com
   ```sh
   omnidump dump pid --self --all --verbose 
   ```
-0.2. Basic dump of executable section with including strings (of length 4). 
+0.2. Basic dump of executable section, including strings (of length 4). 
   ```sh
   omnidump dump pid --self -e --strings 
   ```
+1. Log dump of extracted strings from the executable section
+   ```sh
+   omnidump dump pid --self -e --log-strings --save-dir ./omnidump_strings
+   ```
+1.1 Log dump of extracted strings from both executable and device mappings sections. 
+  ```sh
+  omnidump dump pid --self -e -dm --log-strings --save-dir ./omnidump_strings
+  ```
+2. Log dump of raw bytes from executable section.
+   ```sh
+   omnidump dump pid --self -e --log-sections --save-dir ./omnidump_sections
+   ```
+2.1 Log dump of raw bytes from shared library and heap sections. 
+  ```sh
+  omnidump dump pid --self -sl -h --log-sections --save-dir ./omnidump_sections
+  ```
+
+
+
+## Contributing 
+
+Omnidump is open to community contributions. Any contributions are greatly appreciated. Please follow the instructions to properly integrate your ideas/changes. 
+
+1. Fork the Project
+2. Create your feature branch (`git checkout -b feature/cool-feature`)
+3. Commit your changes (`git commit -m 'Adding a cool feature'`)
+4. Push to the branch (`git push origin feature/cool-feature`)
+5. Open a pull request
