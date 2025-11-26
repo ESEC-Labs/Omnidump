@@ -1,4 +1,4 @@
-# memdump
+# Omnidump 
 
 [![PyPI - Version](https://img.shields.io/pypi/v/omnidump.svg)](https://pypi.org/project/omnidump)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/omnidump.svg)](https://pypi.org/project/omnidump)
