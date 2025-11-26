@@ -501,7 +501,9 @@ def format_output_bytes_section_log(mem_path, input_dict, section_flag_dict, con
     sections_to_save = []
     for flag, is_true in section_flag_dict.items():
         if is_true: 
-            sections_to_save.append(flag)
+            section_name = FLAG_TO_SECTION_MAP.get(flag)
+            if section_name: 
+                sections_to_save.append(section_name)
 
     for section_name in sections_to_save: 
         section_dict = input_dict.get(section_name, {})
@@ -528,10 +530,11 @@ def format_output_bytes_strings_log(mem_path, input_dict, section_flag_dict, con
         return
 
     sections_to_save = []
-
     for flag, is_true in section_flag_dict.items():
         if is_true: 
-            sections_to_save.append(flag)
+            section_name = FLAG_TO_SECTION_MAP.get(flag)
+            if section_name: 
+                sections_to_save.append(section_name)
 
     for section_name in sections_to_save: 
         section_dict = input_dict.get(section_name, {})
@@ -540,7 +543,6 @@ def format_output_bytes_strings_log(mem_path, input_dict, section_flag_dict, con
             save_memory_strings(mem_path, section_dict, section_output_dir, config)
         else: 
             click.secho(f"No regions found for section '{section_name}'.", fg="yellow")
-
 
 def format_output_bytes_console_log(mem_path, input_dict, section_flag_dict, config: CliAppConfig):
     """
@@ -595,22 +597,11 @@ def format_output_bytes(mem_path, input_dict, config: CliAppConfig):
     print_to_console = True
     
     flag_options_all = {
-        "executable": config.flag_exec_sec,
-        "shared_libs": config.flag_slib_sec,
-        "heap": config.flag_he_sec,
-        "stack": config.flag_st_sec,
-        "vvar": config.flag_vvar_sec,
-        "vsyscall": config.flag_vsys_sec,
-        "vdso": config.flag_vdso_sec,
-        "anon": config.flag_anon_sec,
-        "guard_pages": config.flag_gp_sec,
-        "file_backed": config.flag_fb_sec,
-        "tmpfs_shm": config.flag_ts_sec,
-        "device_mappings": config.flag_dm_sec,
-        "anon_map": config.flag_anon_map_sec,
-        "none": config.flag_none_sec
+        flag_name: getattr(config, flag_name)
+        for flag_name in FLAG_TO_SECTION_MAP.keys()
     }
     
+
     sections_to_log_dict = {
         key: value for key, value in flag_options_all.items() if key != "none"
     }

@@ -332,6 +332,7 @@ def dump_pid(
     if save_dir is None and not log_flags:
         save_dir = ""
 
+
     config = CliAppConfig(
         pid=target_pid,
         dump_self=dump_self,
