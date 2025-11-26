@@ -23,7 +23,7 @@ jobs:
           
       - name: Run pytest
         run: | 
-          pytest tests/
+          pytest omnidump/tests/
 
       - name: Run pylint 
         run: |
