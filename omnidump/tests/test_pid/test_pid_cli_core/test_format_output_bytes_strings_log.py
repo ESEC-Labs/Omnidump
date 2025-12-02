@@ -19,7 +19,7 @@ def test_fobstl_single_section_strings_saved(
                 Assert click.secho is not called. 
     """
     section_flag_dict = {
-        "executable": mock_fobstl_single_section_strings_saved_config.flag_exec_sec
+        "flag_exec_sec": mock_fobstl_single_section_strings_saved_config.flag_exec_sec
     }
 
     format_output_bytes_strings_log(

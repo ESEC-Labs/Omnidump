@@ -21,7 +21,7 @@ def test_fobsl_single_section_save(
                 Assert click.secho is not called. 
     """
     section_flag_dict = {
-        "executable": mock_fobsl_single_section_save_config.flag_exec_sec
+        "flag_exec_sec": mock_fobsl_single_section_save_config.flag_exec_sec
     }
 
     format_output_bytes_section_log(
@@ -57,8 +57,8 @@ def test_fobsl_multi_sect_save(
                 directory for each. 
     """
     section_flag_dict_multi={
-        "executable": mock_fobsl_multi_sect_save_config.flag_exec_sec,
-        "shared_libs": mock_fobsl_multi_sect_save_config.flag_slib_sec
+        "flag_exec_sec": mock_fobsl_multi_sect_save_config.flag_exec_sec,
+        "flag_slib_sec": mock_fobsl_multi_sect_save_config.flag_slib_sec
     }
 
     format_output_bytes_section_log(
@@ -104,7 +104,7 @@ def test_fobsl_section_empty(
                 "No regions found for section 'executable'."
     """
     section_flag_dict = {
-        "executable": mock_fobsl_single_section_save_config.flag_exec_sec
+        "flag_exec_sec": mock_fobsl_single_section_save_config.flag_exec_sec
     }
 
     format_output_bytes_section_log(
