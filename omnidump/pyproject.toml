@@ -11,7 +11,7 @@ requires-python = ">=3.8"
 license = "MIT"
 keywords = []
 authors = [
-  { name = "Isaiah6225", email = "isaiahjohnson6225@gmail.com" },
+  { name = "ESEC-Labs", email = "isaiahjohnson6225@gmail.com" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -24,15 +24,15 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = ["click", "psutil", "click-option-group"]
+dependencies = ["click", "psutil", "pytest", "pylint"]
 
 [project.scripts]
 omnidump = "omnidump.cli:main"
 
 [project.urls]
-Documentation = "https://github.com/ESEC-Labs/Memdump/.git"
-Issues = "https://github.com/ESEC-Labs/Memdump/issues.git"
-Source = "https://github.com/ESEC-Labs/Memdump/.git"
+Documentation = "https://github.com/ESEC-Labs/Omnidump/.git"
+Issues = "https://github.com/ESEC-Labs/Omnidump/issues.git"
+Source = "https://github.com/ESEC-Labs/Omnidump/.git"
 
 [tool.hatch.version]
 path = "src/omnidump/__about__.py"
@@ -53,7 +53,7 @@ omit = [
 ]
 
 [tool.coverage.paths]
-memdump = ["src/omnidump", "*/omnidump/src/omnidump"]
+omnidump = ["src/omnidump", "*/omnidump/src/omnidump"]
 tests = ["tests", "*/omnidump/tests"]
 
 [tool.coverage.report]
